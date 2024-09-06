@@ -51,12 +51,12 @@ exports.createBook = async (req, res) => {
     }
 
     // Create the book in the database
-    await Model.insert(tb_name, keys, values);
+    const result = await Model.insert(tb_name, keys, values);
 
     return res.status(201).json({
       success: true,
       message: "Book uploaded successfully!",
-      result: {},
+      result: result.rows[0],
       error: 0,
     });
   } catch (error) {

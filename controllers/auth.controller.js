@@ -1,5 +1,5 @@
 const bcrypt = require("bcrypt");
-const { pool } = require("../services/pg_pool")
+const { pool } = require("../services/pg_pool");
 const jwt = require("jsonwebtoken");
 const User = require("../models/user.model");
 const Password = require("../models/password.model");
@@ -18,7 +18,7 @@ exports.createUser = async (req, res) => {
     const body = req.body;
 
     // Validate the request body against the schema
-    const { error, value } = Schema.userSchema.validate(body);
+    const { error, value } = Schema.userCreateSchema.validate(body);
     if (error) {
       return res.status(400).json({
         success: false,
@@ -68,6 +68,60 @@ exports.createUser = async (req, res) => {
       message: "Internal server error",
       result: {},
       error: error.message,
+    });
+  }
+};
+
+exports.updateUser = async (req, res) => {
+  try {
+    const body = req.body;
+    const id = req.user.id;
+
+    // Validate the request body against the schema
+    const { error, value } = Schema.userUpdateSchema.validate(body);
+    if (error) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid request body." + error.message,
+        error: 1,
+      });
+    }
+
+    if (body.email) {
+      const emailExists = await User.emailExists(body.email);
+      if (emailExists) {
+        return res.status(409).json({
+          success: false,
+          message: `Email ${body.email} already exists!`,
+          result: {},
+          error: 2,
+        });
+      }
+    }
+
+     const result = await User.updateUser(id, body);
+    if(result.rowCount===0){
+      return res.status(404).json({
+        message: 'INTERNAL SERVER ERROR:' + error.message,
+        success: false,
+        error: 3,
+        result: {},
+      })
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "User updated successful!",
+      result: result.rowCount[0],
+      error: 0,
+    });
+  } catch (error) {
+    console.error("Error creating user:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error" + error.message,
+      result: {},
+      error: 4,
     });
   }
 };

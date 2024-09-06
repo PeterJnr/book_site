@@ -8,11 +8,15 @@ const {isAuthenticated} = require("../middlewares/auth.middleware")
 // const { generateAccessToken, generateRefreshToken } = require('../utils/token.utility');
 
 // authentication
-router.post("/user/create", AuthController.createUser);
 router.post("/user/login", AuthController.userLogin);
 router.post("/user/logout", AuthController.logoutUser);
 // router.post("/refresh/token", Auth.isAllUsers, AuthController.refreshToken);
 // router.post("/check/token", Auth.isAuthenticated, AuthController.checkToken);
+
+// user 
+router.post("/user/create", AuthController.createUser);
+router.post("/user/update/:id", isAuthenticated, AuthController.updateUser);
+
 
 // forgot password
 router.post("/user/reset/password", ForgotPasswordController.resetPassword);

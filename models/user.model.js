@@ -63,6 +63,47 @@ class User {
     }
   }
 
+  static async updateUser(id, body) {
+    const client = await pool.connect();
+
+    try {
+      await client.query("BEGIN");
+
+      const requestBodyKeys = Object.keys(body);
+      const requestBodyValues = Object.values(body);
+
+      // Construct SET clause for the UPDATE query
+      const setClause = requestBodyKeys
+        .map((key, index) => `${key} = $${index + 1}`)
+        .join(", ");
+
+      const updateUserQuery = `
+                UPDATE ${TABLE_NAME} 
+                SET ${setClause} 
+                WHERE id = $${
+                  requestBodyKeys.length + 1
+                } RETURNING id`;
+
+      const userResult = await client.query(updateUserQuery, [
+        ...requestBodyValues,
+        id,
+      ]);
+
+      if (userResult.rowCount === 0) {
+        throw new Error("Error while updating user.");
+      }
+
+      await client.query("COMMIT");
+      return { id: userResult.rows[0].id };
+    } catch (error) {
+      await client.query("ROLLBACK");
+      console.error("Internal Server Error:", error);
+      throw new Error(`Internal Server Error: ${error.message}`);
+    } finally {
+      client.release();
+    }
+  }
+
   static async fetch_one_by_key(tb_name, condition_key, condition_value) {
     try {
       // Construct the SELECT query with dynamic column and condition
