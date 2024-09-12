@@ -1,11 +1,13 @@
 const bcrypt = require("bcrypt");
-const { pool } = require("../services/pg_pool");
 const jwt = require("jsonwebtoken");
+const { pool } = require('../services/pg_pool')
 const User = require("../models/user.model");
 const Password = require("../models/password.model");
 const Schema = require("../schemas/user.schema");
 const { validatePassword } = require("../utils/validation.utils");
 const passwordUtil = require("../utils/password.utils");
+const token = require("../utils/token.utility");
+const { sendVerificationEmail } = require("../models/mail.model");
 const { createSession } = require("../controllers/sessions.controller");
 
 // Blacklist to store invalidated JWTs
@@ -17,13 +19,15 @@ exports.createUser = async (req, res) => {
   try {
     const body = req.body;
 
-    // Validate the request body against the schema
-    const { error, value } = Schema.userCreateSchema.validate(body);
+    // Validate request body
+    const { error, value } = Schema.userCreateSchema.validate(body, {
+      abortEarly: true,
+    });
     if (error) {
       return res.status(400).json({
         success: false,
-        message: "Invalid request body.",
-        error: error.details,
+        message: `${error.details[0].message}`,
+        error: 1,
       });
     }
 
@@ -33,41 +37,75 @@ exports.createUser = async (req, res) => {
         success: false,
         message: "Password does not meet the required criteria!",
         result: {},
-        error: 3,
-      });
-    }
-
-    // Check if the email already exists
-    const emailExists = await User.emailExists(body.email);
-    if (emailExists) {
-      return res.status(409).json({
-        success: false,
-        message: `Email ${body.email} already exists!`,
-        result: {},
         error: 2,
       });
     }
 
+    // Check if email, username, or phone number already exists
+    const emailExists = await User.emailExists(value.email);
+    if (emailExists) {
+      return res.status(409).json({
+        success: false,
+        message: `Email ${value.email} already exists!`,
+        result: {},
+        error: 3,
+      });
+    }
+
+    const userNameExists = await User.alreadyExists(
+      "user_name",
+      value.user_name
+    );
+    if (userNameExists) {
+      return res.status(409).json({
+        success: false,
+        message: `Username ${value.user_name} already exists!`,
+        result: {},
+        error: 4,
+      });
+    }
+
+    const phoneExists = await User.alreadyExists("phone", value.phone);
+    if (phoneExists) {
+      return res.status(409).json({
+        success: false,
+        message: `Phone number ${value.phone} already exists!`,
+        result: {},
+        error: 5,
+      });
+    }
+
     // Hash the password
-    const hash_password = await Password.passwordHash(body.password);
-    body.password = hash_password;
+    const hash_password = await Password.passwordHash(value.password);
+    value.password = hash_password;
 
-    body.role = "3";
+    // Generate verification token and send email
+    const verificationToken = await token.generateVerificationToken();
+    value.verification_token = verificationToken;
+    value.role = "3"; // Assign role
 
-    await User.createUser(body);
-    return res.status(201).json({
-      success: true,
-      message: "User created successful!",
-      result: {},
-      error: 0,
-    });
+    // Create the user in the database
+    const result = await User.createUser(value);
+    if (result) {
+      if (value.email) {
+        // Send verification email
+        await sendVerificationEmail(value, verificationToken);
+
+        return res.status(200).json({
+          success: true,
+          message: "Please verify your email to comaplete your registration.",
+          result: result,
+          error: 0,
+        });
+      }
+    }
   } catch (error) {
     console.error("Error creating user:", error);
     return res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message: "Internal server error: " + error.message,
       result: {},
-      error: error.message,
+      error: 6,
     });
   }
 };
@@ -99,14 +137,14 @@ exports.updateUser = async (req, res) => {
       }
     }
 
-     const result = await User.updateUser(id, body);
-    if(result.rowCount===0){
+    const result = await User.updateUser(id, body);
+    if (result.rowCount === 0) {
       return res.status(404).json({
-        message: 'INTERNAL SERVER ERROR:' + error.message,
+        message: "INTERNAL SERVER ERROR:" + error.message,
         success: false,
         error: 3,
         result: {},
-      })
+      });
     }
 
     return res.status(200).json({

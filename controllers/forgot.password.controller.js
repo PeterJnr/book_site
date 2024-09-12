@@ -1,5 +1,5 @@
 const User = require("../models/user.model");
-const { pool } = require('../services/pg_pool');
+const { pool } = require("../services/pg_pool");
 const Password = require("../models/password.model");
 const { isValidEmail } = require("../utils/validation.utils");
 
@@ -14,26 +14,22 @@ exports.resetPassword = async (request, response) => {
   });
 
   if (!isValidRequest) {
-    response
-      .status(422)
-      .json({
-        success: false,
-        message: "Invalid request body!",
-        result: {},
-        error: 1,
-      });
+    response.status(422).json({
+      success: false,
+      message: "Invalid request body!",
+      result: {},
+      error: 1,
+    });
   }
 
   const checkEmail = await User.emailExists(body.email);
   if (!checkEmail) {
-    response
-      .status(400)
-      .json({
-        success: false,
-        message: `Email ${body.email} is NOT found in our Records; Register!`,
-        result: {},
-        error: 2,
-      });
+    response.status(400).json({
+      success: false,
+      message: `Email ${body.email} is NOT found in our Records; Register!`,
+      result: {},
+      error: 2,
+    });
   }
 
   Password.resetPassword(body, response);
@@ -44,15 +40,14 @@ exports.verifyForgotPassword = async (request, response) => {
 
   // Validate request body
   if (!token || !password) {
-    response
-      .status(422)
-      .json({
-        success: false,
-        message: "Incomplete fields!",
-        result: {},
-        error: 1,
-      });
+    return response.status(422).json({
+      success: false,
+      message: "Incomplete fields!",
+      result: {},
+      error: 1,
+    });
   }
+
   try {
     // Decode the base64 encoded token
     const decodedToken = Buffer.from(token, "base64").toString("utf-8");
@@ -63,14 +58,12 @@ exports.verifyForgotPassword = async (request, response) => {
     const tokenCheckResult = await pool.query(tokenCheckQuery, [decodedToken]);
 
     if (tokenCheckResult.rowCount === 0) {
-      response
-        .status(400)
-        .json({
-          success: false,
-          message: "Invalid token!",
-          result: {},
-          error: 2,
-        });
+      return response.status(400).json({
+        success: false,
+        message: "Invalid token!",
+        result: {},
+        error: 2,
+      });
     }
 
     const {
@@ -83,7 +76,7 @@ exports.verifyForgotPassword = async (request, response) => {
     const passwordRegex =
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*#?&])[A-Za-z\d@$!%*#?&]{8,}$/;
     if (!passwordRegex.test(password)) {
-      response.status(400).json({
+      return response.status(400).json({
         success: false,
         message:
           "Password must be at least 8 characters long, contain an uppercase letter, a lowercase letter, a number, and a special character!",
@@ -102,7 +95,7 @@ exports.verifyForgotPassword = async (request, response) => {
     );
 
     if (passwordMatch) {
-      response.status(400).json({
+      return response.status(400).json({
         success: false,
         message: "New password must be different from the current password!",
         result: {},
@@ -110,27 +103,24 @@ exports.verifyForgotPassword = async (request, response) => {
       });
     }
 
+    // Update the user's password in the database
     const updateQuery =
       "UPDATE users SET password = $1, remember_token = NULL WHERE id = $2";
     await pool.query(updateQuery, [hash_password, userId]);
 
-    response
-      .status(200)
-      .json({
-        success: true,
-        message: "Password reset successfully",
-        result: {},
-        error: 0,
-      });
+    return response.status(200).json({
+      success: true,
+      message: "Password reset successfully",
+      result: {},
+      error: 0,
+    });
   } catch (error) {
     console.error("Error during password reset process:", error);
-    response
-      .status(500)
-      .json({
-        success: false,
-        message: "Internal server error",
-        result: {},
-        error: 3,
-      });
+    return response.status(500).json({
+      success: false,
+      message: "Internal server error",
+      result: {},
+      error: 3,
+    });
   }
 };

@@ -50,6 +50,7 @@ class Password {
       // Encode the token before sending it in the URL
       const encodedToken = base64.encode(hashedResetToken);
 
+
       await sendResetLink(userDetails.rows[0], encodedToken, response);
 
       response

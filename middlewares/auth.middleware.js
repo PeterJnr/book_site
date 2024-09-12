@@ -64,4 +64,110 @@ const isAuthenticated = (request, response, next) => {
   }
 };
 
-module.exports = { authenticateToken, isAuthenticated };
+const isAdmin = (request, response, next) => {
+  console.log('user', request.user)
+  try {
+    const authHeader = request.headers.authorization;
+
+    // Check if Authorization header is provided
+    if (!authHeader) {
+      return response.status(401).json({
+        success: false,
+        message: "Unauthorized! Missing authorization header.",
+        error: 2,
+      });
+    }
+
+    // Extract the token from the Authorization header
+    const token = authHeader.split(" ")[1]; // Assuming 'Bearer <token>'
+
+    if (!token) {
+      return response.status(401).json({
+        success: false,
+        message: "Unauthorized! Token not provided.",
+        error: 2,
+      });
+    }
+
+    // Verify the token
+    const secretKey = process.env.JWT_SECRET; // Ensure this environment variable is set
+    const user = jwt.verify(token, secretKey);
+
+    // Check if the user role is 2 (Admin)
+    if (parseInt(user.role) !== 2) {
+      return response.status(403).json({
+        success: false,
+        message: "Forbidden! You are not authorized. Only Admins are allowed.",
+        error: 3,
+      });
+    }
+
+    // Attach user object to request and proceed
+    request.user = user;
+    next();
+  } catch (error) {
+    return response.status(401).json({
+      success: false,
+      message: "Unauthorized! " + error.message,
+      error: 2,
+    });
+  }
+};
+
+// const checkRole = (expectedRole) => (request, response, next) => {
+//   try {
+//     console.log('request', request)
+//     const authHeader = request.headers.authorization;
+//     if (!authHeader) {
+//       return response.status(401).json({
+//         success: false,
+//         message: "Unauthorized! Missing authorization header.",
+//         error: 2,
+//       });
+//     }
+
+//     const user = verifyToken(authHeader);
+
+//     if (parseInt(user.role) !== expectedRole) {
+//       const roleMessage = (() => {
+//         switch (expectedRole) {
+//           case 1:
+//             return "Super Admin";
+//           case 2:
+//             return "Admin";
+//           case 3:
+//             return "User";
+//           default:
+//             return "Unknown";
+//         }
+//       })();
+
+//       return response.status(403).json({
+//         success: false,
+//         message: `Forbidden! You are not authorized. Expected role: ${roleMessage}.`,
+//         error: 3,
+//       });
+//     }
+
+//     request.user = user; // Attach user object to request
+//     next(); // Proceed to the next middleware or route handler
+//   } catch (error) {
+//     return response.status(401).json({
+//       success: false,
+//       message: "Unauthorized! " + error.message,
+//       error: 2,
+//     });
+//   }
+// };
+
+// const isSuperAdmin = checkRole(1);
+// const isAdmin = checkRole(2);
+// const isUser = checkRole(3);
+
+module.exports = {
+  authenticateToken,
+  isAuthenticated,
+  // isSuperAdmin,
+  isAdmin,
+  // isUser,
+};

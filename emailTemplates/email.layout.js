@@ -5,7 +5,7 @@ exports.Header = () => {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>SCHOOL PORTAL EMAIL NOTIFICATION</title>
+            <title>BOOK STORE EMAIL NOTIIFICATION</title>
         </head>
         <body>
     `)

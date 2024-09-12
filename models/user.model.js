@@ -14,13 +14,11 @@ class User {
       const requestBodyValues = Object.values(body);
 
       const insertUserQuery = `
-                INSERT INTO ${TABLE_NAME} 
-                    (${requestBodyKeys.join(", ")}) 
-                VALUES 
-                    (${requestBodyValues
-                      .map((_, index) => "$" + (index + 1))
-                      .join(", ")})
-                RETURNING id`;
+        INSERT INTO ${TABLE_NAME} 
+        (${requestBodyKeys.join(", ")}) 
+        VALUES 
+        (${requestBodyValues.map((_, index) => "$" + (index + 1)).join(", ")})
+        RETURNING *`;
 
       const userResult = await client.query(insertUserQuery, requestBodyValues);
 
@@ -28,8 +26,15 @@ class User {
         throw new Error("Error while creating user.");
       }
 
+      // Extract the user data from the result
+      const user = userResult.rows[0];
+
+      // Delete the password field from the user object
+      delete user.password;
+
       await client.query("COMMIT");
-      return { id: userResult.rows[0].id };
+
+      return user; // Return the user object without the password field
     } catch (error) {
       await client.query("ROLLBACK");
       console.error("Internal Server Error:", error);
@@ -80,9 +85,7 @@ class User {
       const updateUserQuery = `
                 UPDATE ${TABLE_NAME} 
                 SET ${setClause} 
-                WHERE id = $${
-                  requestBodyKeys.length + 1
-                } RETURNING id`;
+                WHERE id = $${requestBodyKeys.length + 1} RETURNING id`;
 
       const userResult = await client.query(updateUserQuery, [
         ...requestBodyValues,
@@ -115,6 +118,39 @@ class User {
       console.error("Error selecting column by key:", error);
       return Promise.reject(error);
     }
+  }
+
+  static async alreadyExists(fieldName, value) {
+    try {
+      // Construct the query dynamically
+      const query = `SELECT 1 FROM users WHERE ${fieldName} = $1 LIMIT 1`;
+      const result = await pool.query(query, [value]);
+
+      return result.rowCount > 0; // Returns true if the field value exists
+    } catch (error) {
+      console.error(`Error checking if ${fieldName} exists:`, error.message);
+      throw new Error(`Error checking if ${fieldName} exists in the database.`);
+    }
+  }
+
+  static async findByVerificationToken(token) {
+    const query = `SELECT * FROM users WHERE verification_token = $1`;
+    const result = await pool.query(query, [token]);
+    return result.rows[0];
+  }
+
+  static async verifyUserEmail(userId) {
+    const query = `
+      UPDATE users
+      SET is_verified = TRUE,
+          verification_token = NULL,
+          status = 'active'
+      WHERE id = $1
+      RETURNING *
+    `;
+
+    const result = await pool.query(query, [userId]);
+    return result;
   }
 }
 

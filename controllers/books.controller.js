@@ -1,54 +1,54 @@
+const { response } = require("express");
 const Model = require("../models/queries.general");
 const Schema = require("../schemas/books.schema");
-const {
-  handleFileUploads,
-  handleUpdateFileUploads,
-} = require("../utils/file.upload.utils");
 const tb_name = "books";
 
 exports.createBook = async (req, res) => {
   try {
     const body = req.body;
+    console.log('body', body)
 
-    // Validate the request body against the schema
-    const { error, value } = Schema.bookCreateSchema.validate(body);
+    const { error, value } = Schema.bookCreateSchema.validate(body, {
+      abortEarly: true,
+    });
     if (error) {
       return res.status(400).json({
         success: false,
-        message: "Invalid request body." + error.details,
+        message: `${error.details[0].message}`,
         error: 1,
         result: {},
       });
     }
 
-    const { cover_image } = value;
-
-    let coverImagePath;
-    if (cover_image) {
-      try {
-        coverImagePath = await handleFileUploads(
-          req,
-          res,
-          ["cover_image"],
-          `images/books/`
-        );
-      } catch (uploadError) {
-        return res.status(500).json({
-          success: false,
-          message: "File upload error: " + uploadError.message,
-          error: uploadError.message,
-        });
-      }
+    const { isbn, title, author } = value;
+    const isbnExist = await Model.fetch_one_by_key(tb_name, "isbn", isbn);
+    if (isbnExist.rowCount > 0) {
+      return res.status(400).json({
+        message: `A book with ISBN ${isbn} already exists.`,
+        success: false,
+        result: {},
+        error: 2,
+      });
     }
 
-    const keys = Object.keys(value);
-    const values = Object.values(value);
-
-    // Add cover image to the keys and values if it's provided
-    if (cover_image) {
-      keys.push("cover_image");
-      values.push(coverImagePath);
+    const duplicateBook = await Model.select_by_keys("books", {
+      title,
+      author,
+    });
+    if (duplicateBook.rowCount > 0) {
+      return res.status(400).json({
+        message: `A book with title "${title}" by author "${author}" already exists.`,
+        success: false,
+        result: {},
+        error: 3,
+      });
     }
+
+    const coverImagePath = req.file ? req.file.path : null; // Store the image path if it exists
+
+    // Include coverImagePath in the values to be inserted
+    const keys = Object.keys(value).concat('cover_image');
+    const values = Object.values(value).concat(coverImagePath);
 
     // Create the book in the database
     const result = await Model.insert(tb_name, keys, values);
@@ -93,10 +93,9 @@ exports.getAllBooks = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching books:", error);
-
     return res.status(500).json({
       success: false,
-      message: "Internal server error"+ error.message,
+      message: "Internal server error" + error.message,
       result: {},
       error: 2,
     });
@@ -139,45 +138,44 @@ exports.updateBook = async (req, res) => {
     const { id: bookId } = req.params;
     const body = req.body;
 
-    const { error, value } = Schema.bookUpdateSchema.validate(body);
+    const { error, value } = Schema.bookUpdateSchema.validate(body, {
+      abortEarly: true,
+    });
     if (error) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid request body: " +
-          error.details.map((detail) => detail.message).join(", "),
+        message: `${error.details[0].message}`,
         error: 1,
         result: {},
       });
     }
 
-    const { cover_image, ...otherFields } = value;
+    const { isbn, author, title } = value;
 
-    let coverImagePath;
-    if (cover_image) {
-      try {
-        coverImagePath = await handleUpdateFileUploads(
-          req,
-          res,
-          ["cover_image"],
-          `images/books/`
-        );
-      } catch (uploadError) {
-        return res.status(500).json({
-          success: false,
-          message: "File upload error: " + uploadError.message,
-          error: 2,
-          result: {},
-        });
-      }
-    }
-    const updateData = { ...otherFields };
-
-    if (coverImagePath) {
-      updateData.cover_image = coverImagePath;
+    const duplicateBook = await Model.select_by_keys("books", {
+      title,
+      author,
+    });
+    if (duplicateBook.rowCount > 0 && duplicateBook.rows[0].id !== bookId) {
+      return res.status(400).json({
+        message: `A book with title "${title}" by author "${author}" already exists.`,
+        success: false,
+        result: {},
+        error: 2,
+      });
     }
 
-    const updatedBook = await Model.update_by_id("books", bookId, updateData);
+    const isbnExist = await Model.fetch_one_by_key("books", "isbn", isbn);
+    if (isbnExist.rowCount > 0 && isbnExist.rows[0].id !== bookId) {
+      return res.status(400).json({
+        message: `A book with ISBN ${isbn} already exists.`,
+        success: false,
+        result: {},
+        error: 3,
+      });
+    }
+
+    const updatedBook = await Model.update_by_id("books", bookId, value);
 
     if (!updatedBook.rowCount) {
       return res.status(404).json({
@@ -209,14 +207,25 @@ exports.deleteBook = async (req, res) => {
   try {
     const { id: bookId } = req.params;
 
+    const result = await Model.fetch_one_by_key(tb_name, "id", bookId);
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({
+        message: "No record found!",
+        success: false,
+        result: {},
+        error: 1,
+      });
+    }
+
     const deletedBook = await Model.delete_by_key("books", "id", bookId);
 
-    if (!deletedBook.rowCount) {
+    if (deletedBook.rowCount === 0) {
       return res.status(404).json({
         success: false,
         message: "Book not found",
         result: {},
-        error: 1,
+        error: 2,
       });
     }
 
@@ -232,7 +241,7 @@ exports.deleteBook = async (req, res) => {
       success: false,
       message: "Internal server error: " + error.message,
       result: {},
-      error: 2,
+      error: 3,
     });
   }
 };

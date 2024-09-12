@@ -77,6 +77,25 @@ class Model {
     }
   }
 
+  static async select_by_keys(tb_name, conditions) {
+    try {
+      // Construct the WHERE clause with dynamic conditions
+      const conditionKeys = Object.keys(conditions);
+      const conditionValues = Object.values(conditions);
+
+      const whereClause = conditionKeys
+        .map((key, index) => `${key} = $${index + 1}`)
+        .join(" AND ");
+
+      const queryText = `SELECT * FROM ${tb_name} WHERE ${whereClause}`;
+
+      return await pool.query(queryText, conditionValues);
+    } catch (error) {
+      console.error("Error selecting data by key:", error);
+      return Promise.reject(error);
+    }
+  }
+
   static async delete_by_key(tb_name, condition_key, condition_value) {
     try {
       const queryText = `
@@ -91,6 +110,41 @@ class Model {
       return Promise.reject(error);
     }
   }
+
+  static async fetch_one_by_key1 (tb_name, key1, value1, key2, value2) {
+  try {
+    const queryText = `SELECT * FROM ${tb_name} WHERE ${key1} = $1 AND ${key2} = $2`;
+    return await pool.query(queryText, [value1, value2]);
+  } catch (error) {
+    console.error("Error fetching data:", error);
+    return Promise.reject(error);
+  }
+};
+
+static async update_by_key1 (tb_name, key, value, data) {
+  try {
+    const keys = Object.keys(data);
+    const values = Object.values(data);
+    const setClause = keys.map((k, i) => `${k} = $${i + 1}`).join(', ');
+    const queryText = `UPDATE ${tb_name} SET ${setClause} WHERE ${key} = $${keys.length + 1} RETURNING *`;
+    values.push(value);
+    return await pool.query(queryText, values);
+  } catch (error) {
+    console.error("Error updating data:", error);
+    return Promise.reject(error);
+  }
+};
+
+static async delete_by_key1 (tb_name, key1, value1, key2, value2) {
+  try {
+    const queryText = `DELETE FROM ${tb_name} WHERE ${key1} = $1 AND ${key2} = $2 RETURNING *`;
+    return await pool.query(queryText, [value1, value2]);
+  } catch (error) {
+    console.error("Error deleting data:", error);
+    return Promise.reject(error);
+  }
+};
+
 }
 
 module.exports = Model;

@@ -1,5 +1,5 @@
-const crypto = require('crypto');
-const bcrypt = require('bcrypt');
+const crypto = require("crypto");
+const bcrypt = require("bcrypt");
 const { pool } = require("../services/pg_pool");
 const User = require("../models/user.model");
 
@@ -117,5 +117,5 @@ module.exports = {
   updateLoginAttempts,
   updateLastLoginTime,
   sendErrorResponse,
-  generatePasswordResetToken
+  generatePasswordResetToken,
 };

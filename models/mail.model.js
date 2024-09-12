@@ -1,4 +1,5 @@
 const passwordReset = require("../emailTemplates/password.reset");
+const emailVerify = require("../emailTemplates/confirm.registration.email");
 const transporter = require('../services/mail.transporter')
 
 const NODE_ENV = process.env.NODE_ENV;
@@ -26,12 +27,24 @@ const sendResetLink = async (user, hashedToken, response) => {
       return true;
     } catch (error) {
       console.error("Error sending Password Reset link:", error);
-      response
-        .status(500)
-        .send({ error: 1, message: "Error sending Password Reset link" });
+      return false;  
     }
   };
 
+  const sendVerificationEmail = async (user, token) => {
+    const verificationUrl = `http://yourdomain.com/verify-email?token=${token}`;
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: user.email,
+      subject: 'Email Verification',
+      html: emailVerify(user, token)
+    };
+    
+    await transporter.sendMail(mailOptions);
+  }
+
   module.exports = {
-    sendResetLink
+    sendResetLink,
+    sendVerificationEmail
   }
