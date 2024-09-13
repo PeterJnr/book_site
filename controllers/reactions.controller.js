@@ -251,7 +251,7 @@ exports.deleteReaction = async (req, res) => {
     if (bookExists.rowCount === 0) {
       return res.status(404).json({
         success: false,
-        message: "Book not Available .",
+        message: "Book not found.",
         result: {},
         error: 1,
       });
