@@ -49,7 +49,7 @@ const bookCreateSchema = Joi.object({
       "string.max": "Cover image URL must not exceed 1000 characters.",
       "string.pattern.base":
         "Cover image must have a valid file extension (jpg, jpeg, png, gif, bmp).",
-    }),
+    }).required(),
 });
 
 const bookUpdateSchema = Joi.object({

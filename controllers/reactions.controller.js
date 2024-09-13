@@ -126,7 +126,7 @@ exports.createReaction = async (req, res) => {
 
 exports.updateReaction = async (req, res) => {
   try {
-    const user_id = req.user.id;
+    const user_id = req.user.userId;
     const reaction_id = req.params.reaction_id;
     const { reaction_type } = req.body;
 
@@ -134,7 +134,8 @@ exports.updateReaction = async (req, res) => {
     const reactionExists = await Model.fetch_one_by_key(
       "reactions",
       "id",
-      reaction_id
+      reaction_id,
+
     );
     if (reactionExists.rowCount === 0) {
       return res.status(404).json({
@@ -142,6 +143,21 @@ exports.updateReaction = async (req, res) => {
         message: "Reaction not found.",
         result: {},
         error: 1,
+      });
+    }
+
+     // Check if the book exists in the database
+     const userExists = await Model.fetch_one_by_key(
+      "users",
+      "id",
+      user_id,      
+    );
+    if (userExists.rowCount === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "user not found.",
+        result: {},
+        error: 2,
       });
     }
 
@@ -157,27 +173,20 @@ exports.updateReaction = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: `${error.details[0].message}`,
-        error: 2,
+        error: 3,
         result: {},
       });
     }
 
     // Update the reaction
-    const result = await Model.update_by_key1(
-      "reactions",
-      "user_id",
-      user_id,
-      "reaction_id",
-      reaction_id,
-      { reaction_type }
-    );
+    const result = await Model.select_by_keys('reactions', { 'id': reaction_id, 'user_id': user_id });
 
     if (result.rowCount === 0) {
       return res.status(404).json({
         success: false,
         message: "Reaction not found or could not be updated.",
         result: {},
-        error: 3,
+        error: 4,
       });
     }
 
@@ -193,17 +202,16 @@ exports.updateReaction = async (req, res) => {
       success: false,
       message: "Internal server error: " + error.message,
       result: {},
-      error: 4,
+      error: 5,
     });
   }
 };
 
 exports.allReactionsOfABook = async (req, res) => {
   try {
-    const offset = parseInt(req.query.offset) || 0;
-    const limit = parseInt(req.query.limit) || 50;
+    const book_id = req.params.book_id;
 
-    const result = await Model.fetch_all(tb_name, offset, limit);
+    const result = await Model.fetch_all_by_key(tb_name, 'book_id', book_id);
     if (result.rowCount === 0) {
       return res.status(404).json({
         success: false,
@@ -232,16 +240,15 @@ exports.allReactionsOfABook = async (req, res) => {
 
 exports.deleteReaction = async (req, res) => {
   try {
-    const user_id = req.user.id;
-    const book_id = req.params.id;
+    const user_id = req.user.userId;
+    const book_id = req.params.book_id;
 
-    // Check if the book exists in the database
-    const bookExistsResult = await Model.fetch_all_by_key(
-      "books",
+    const bookExists = await Model.fetch_all_by_key(
+      'books',
       "id",
       book_id
     );
-    if (bookExistsResult.rowCount === 0) {
+    if (bookExists.rowCount === 0) {
       return res.status(404).json({
         success: false,
         message: "Book not found.",
@@ -251,13 +258,7 @@ exports.deleteReaction = async (req, res) => {
     }
 
     // Delete the reaction if it exists
-    const result = await Model.delete_by_key1(
-      "reactions",
-      "user_id",
-      user_id,
-      "book_id",
-      book_id
-    );
+    const result = await Model.delete_by_key('reactions','book_id', book_id);
 
     if (result.rowCount === 0) {
       return res.status(404).json({

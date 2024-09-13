@@ -26,10 +26,10 @@ router.put('/comment/update/:comment_id', Auth.isAuthenticated, CommentsControll
 router.delete('/comment/delete/:id', Auth.isAuthenticated, CommentsController.deleteComment);
 
 // Reactions (First route for getting all reactions is for admin(s) only)..
-router.get('/reactions/:book_id', Auth.isAuthenticated, ReactionsController.allReactionsOfABook);
+router.get('/reactions/:book_id', ReactionsController.allReactionsOfABook);
 router.post('/reaction/create/:book_id', Auth.isAuthenticated, ReactionsController.createReaction);
-router.delete('/reaction/delete/:reaction_id', Auth.isAuthenticated, ReactionsController.deleteReaction);
 router.put('/reaction/update/:reaction_id', Auth.isAuthenticated, ReactionsController.updateReaction);
+router.delete('/reaction/delete/:book_id', Auth.isAuthenticated, ReactionsController.deleteReaction);
 // router.get('/reactions/:reactions_id', ReactionsController.getAReactions);
 // router.get('/reactions/:book_id', ReactionsController.getReactionsByBook);
 
