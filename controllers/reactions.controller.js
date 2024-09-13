@@ -6,10 +6,10 @@ tb_name = "reactions";
 exports.createReaction = async (req, res) => {
   try {
     const { reaction_type } = req.body;
-    console.log('user', req.user)
     const user_id = req.user.userId;
     const book_id = req.params.book_id;
 
+    // Validate the input using Joi schema
     const { error, value } = Schema.createReaction.validate(
       { reaction_type },
       {
@@ -21,6 +21,30 @@ exports.createReaction = async (req, res) => {
         success: false,
         message: `${error.details[0].message}`,
         error: 1,
+        result: {},
+      });
+    }
+
+    // Check if the user exists using the user_id
+    const userExists = await Model.fetch_one_by_key("users", "id", user_id);
+    if (userExists.rowCount === 0) {
+      // User does not exist
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+        error: 2,
+        result: {},
+      });
+    }
+
+    // Check if the book exists using the book_id
+    const bookExists = await Model.fetch_one_by_key("books", "id", book_id);
+    if (bookExists.rowCount === 0) {
+      // Book does not exist
+      return res.status(404).json({
+        success: false,
+        message: "Book not found.",
+        error: 3,
         result: {},
       });
     }
@@ -78,7 +102,7 @@ exports.createReaction = async (req, res) => {
           message: "An error occurred while creating the reaction.",
           success: false,
           result: {},
-          error: 2,
+          error: 4,
         });
       }
 
@@ -95,7 +119,7 @@ exports.createReaction = async (req, res) => {
       success: false,
       message: "Internal server error: " + error.message,
       result: {},
-      error: 3,
+      error: 5,
     });
   }
 };
@@ -103,19 +127,19 @@ exports.createReaction = async (req, res) => {
 exports.updateReaction = async (req, res) => {
   try {
     const user_id = req.user.id;
-    const book_id = req.params.id;
+    const reaction_id = req.params.reaction_id;
     const { reaction_type } = req.body;
 
     // Check if the book exists in the database
-    const bookExistsResult = await Model.fetch_all_by_key(
-      "books",
+    const reactionExists = await Model.fetch_one_by_key(
+      "reactions",
       "id",
-      book_id
+      reaction_id
     );
-    if (bookExistsResult.rowCount === 0) {
+    if (reactionExists.rowCount === 0) {
       return res.status(404).json({
         success: false,
-        message: "Book not found.",
+        message: "Reaction not found.",
         result: {},
         error: 1,
       });
@@ -133,18 +157,18 @@ exports.updateReaction = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: `${error.details[0].message}`,
-        error: 1,
+        error: 2,
         result: {},
       });
     }
 
     // Update the reaction
-    const result = await Model.update_by_key2(
+    const result = await Model.update_by_key1(
       "reactions",
       "user_id",
       user_id,
-      "book_id",
-      book_id,
+      "reaction_id",
+      reaction_id,
       { reaction_type }
     );
 
@@ -153,7 +177,7 @@ exports.updateReaction = async (req, res) => {
         success: false,
         message: "Reaction not found or could not be updated.",
         result: {},
-        error: 2,
+        error: 3,
       });
     }
 
@@ -169,7 +193,7 @@ exports.updateReaction = async (req, res) => {
       success: false,
       message: "Internal server error: " + error.message,
       result: {},
-      error: 3,
+      error: 4,
     });
   }
 };

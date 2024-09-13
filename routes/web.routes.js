@@ -28,8 +28,8 @@ router.delete('/comment/delete/:id', Auth.isAuthenticated, CommentsController.de
 // Reactions (First route for getting all reactions is for admin(s) only)..
 router.get('/reactions/:book_id', Auth.isAuthenticated, ReactionsController.allReactionsOfABook);
 router.post('/reaction/create/:book_id', Auth.isAuthenticated, ReactionsController.createReaction);
-router.delete('/reactions/delete/:reaction_id', Auth.isAuthenticated, ReactionsController.deleteReaction);
-router.put('/reactions/update/:reaction_id', Auth.isAuthenticated, ReactionsController.updateReaction);
+router.delete('/reaction/delete/:reaction_id', Auth.isAuthenticated, ReactionsController.deleteReaction);
+router.put('/reaction/update/:reaction_id', Auth.isAuthenticated, ReactionsController.updateReaction);
 // router.get('/reactions/:reactions_id', ReactionsController.getAReactions);
 // router.get('/reactions/:book_id', ReactionsController.getReactionsByBook);
 
