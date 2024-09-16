@@ -6,6 +6,7 @@ const SessionController = require("../controllers/sessions.controller")
 const ForgotPasswordController = require('../controllers/forgot.password.controller')
 const verifyEmailController = require('../controllers/varify.email.controller')
 const {isAuthenticated} = require("../middlewares/auth.middleware")
+const upload = require('../utils/multer.file.upload')
 // const { generateAccessToken, generateRefreshToken } = require('../utils/token.utility');
 
 // authentication
@@ -17,7 +18,7 @@ router.post("/user/logout", AuthController.logoutUser);
 // user 
 router.post("/user/create", AuthController.createUser);
 router.get("/user/verify-email", verifyEmailController.verifyEmail);
-router.post("/user/update/:id", isAuthenticated, AuthController.updateUser);
+router.post("/user/update/:id", isAuthenticated, upload.single('avatar'), AuthController.updateUser);
 
 
 // forgot password

@@ -5,8 +5,6 @@ const rateLimit = require("express-rate-limit");
 const app = express();
 app.use(express.json()); 
 app.use(express.urlencoded({ extended: true }));
-app.set('trust proxy', true);
-
 
 // Rate limiter setup
 const limiter = rateLimit({

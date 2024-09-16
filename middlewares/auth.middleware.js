@@ -1,86 +1,86 @@
-// authMiddleware.js
 require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const User = require("../models/user.model");
 
+// Check if token is blacklisted
 const jwtBlacklist = new Set();
 const isTokenBlacklisted = (token) => jwtBlacklist.has(token);
 
-const authenticateToken = (req, res, next) => {
-  const authHeader = req.headers["authorization"];
-  const token = authHeader && authHeader.split(" ")[1];
-
-  if (!token) return res.sendStatus(401);
-
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, async (err, user) => {
-    if (err) return res.sendStatus(403);
-
-    try {
-      // Fetch user from database using the decoded email
-      const fetchedUser = await User.getUserByEmail(user.email);
-      if (!fetchedUser) return res.sendStatus(404);
-
-      req.user = fetchedUser; // Set user in req object
-      next();
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      return res.sendStatus(500); // Internal Server Error
-    }
+// Verify token function
+const verifyToken = (token) => {
+  return new Promise((resolve, reject) => {
+    jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+      if (err) {
+        reject(new Error("Invalid token"));
+      } else {
+        resolve(decoded);
+      }
+    });
   });
 };
 
-const verifyToken = (authHeader) => {
-  if (!authHeader) {
-    throw new Error("No authorization header provided");
-  }
+// Middleware to authenticate token
+const authenticateToken = async (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1];
 
-  const token = authHeader.split(" ")[1];
+  if (!token) return res.sendStatus(401); // No token provided
 
-  if (isTokenBlacklisted(token)) {
-    throw new Error("This Authentication Session is terminated; Login!");
-  }
+  // Check if the token is blacklisted
+  if (isTokenBlacklisted(token)) return res.sendStatus(403);
 
-  // Access JWT_SECRET from environment variables
-  const JWT_SECRET = process.env.JWT_SECRET; // Ensure this is defined correctly
-  if (!JWT_SECRET) {
-    throw new Error("JWT_SECRET is not defined"); // This error will occur if JWT_SECRET is not found
-  }
-
-  // Verify the token using jwt.verify
-  return jwt.verify(token, JWT_SECRET);
-};
-
-const isAuthenticated = (request, response, next) => {
   try {
-    const user = verifyToken(request.headers.authorization);
-    request.user = user;
-    next();
+    // Verify token and fetch user
+    const decoded = await verifyToken(token);
+    const fetchedUser = await User.getUserByEmail(decoded.email);
+    if (!fetchedUser) return res.sendStatus(404);
+
+    req.user = fetchedUser; // Set user in req object
+    next(); // Proceed to the next middleware or route handler
   } catch (error) {
-    return response.status(401).json({
-      success: false,
-      message: "Unauthorized! " + error.message,
-      error: 1,
-    });
+    console.error("Error during authentication:", error.message);
+    res.sendStatus(403); // Forbidden
   }
 };
 
-const isAdmin = (request, response, next) => {
-  console.log('user', request.user)
+// Middleware to check if authenticated
+const isAuthenticated = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1]; // Extract token from Bearer header
+
+  if (!token) return res.sendStatus(401); // No token provided
+
+  verifyToken(token)
+    .then((user) => {
+      req.user = user; // Attach user info to the request
+      next(); // Proceed to the next middleware or route handler
+    })
+    .catch((error) => {
+      console.error("Error verifying token:", error.message);
+      res.status(401).json({ message: "Invalid token" }); // Handle invalid token
+    });
+};
+
+// Middleware to check user role
+const checkRole = (expectedRoles) => async (request, response, next) => {
   try {
+    // Extract the token from the Authorization header
     const authHeader = request.headers.authorization;
 
-    // Check if Authorization header is provided
-    if (!authHeader) {
+    // Check if the Authorization header exists and starts with 'Bearer '
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.log("Authorization header is missing or improperly formatted");
       return response.status(401).json({
         success: false,
-        message: "Unauthorized! Missing authorization header.",
+        message: "Unauthorized! Missing or invalid token.",
         error: 2,
       });
     }
 
-    // Extract the token from the Authorization header
-    const token = authHeader.split(" ")[1]; // Assuming 'Bearer <token>'
+    // Get the token part after "Bearer "
+    const token = authHeader.split(" ")[1];
 
+    // If the token is still undefined or empty
     if (!token) {
       return response.status(401).json({
         success: false,
@@ -90,22 +90,36 @@ const isAdmin = (request, response, next) => {
     }
 
     // Verify the token
-    const secretKey = process.env.JWT_SECRET; // Ensure this environment variable is set
-    const user = jwt.verify(token, secretKey);
+    const user = await verifyToken(token);
 
-    // Check if the user role is 2 (Admin)
-    if (parseInt(user.role) !== 2) {
+    // Check if the user's role is in the expected roles
+    if (!expectedRoles.includes(parseInt(user.role))) {
+      const roleMessages = expectedRoles.map((role) => {
+        switch (role) {
+          case 1:
+            return "Super Admin";
+          case 2:
+            return "Admin";
+          case 3:
+            return "User";
+          default:
+            return "Unknown Role";
+        }
+      });
       return response.status(403).json({
         success: false,
-        message: "Forbidden! You are not authorized. Only Admins are allowed.",
+        message: `Forbidden! You are not authorized. Expected roles: ${roleMessages.join(
+          ", "
+        )}.`,
         error: 3,
       });
     }
 
-    // Attach user object to request and proceed
+    // Attach the user to the request object for future middleware
     request.user = user;
     next();
   } catch (error) {
+    console.error("Error verifying token:", error.message);
     return response.status(401).json({
       success: false,
       message: "Unauthorized! " + error.message,
@@ -114,60 +128,16 @@ const isAdmin = (request, response, next) => {
   }
 };
 
-// const checkRole = (expectedRole) => (request, response, next) => {
-//   try {
-//     console.log('request', request)
-//     const authHeader = request.headers.authorization;
-//     if (!authHeader) {
-//       return response.status(401).json({
-//         success: false,
-//         message: "Unauthorized! Missing authorization header.",
-//         error: 2,
-//       });
-//     }
-
-//     const user = verifyToken(authHeader);
-
-//     if (parseInt(user.role) !== expectedRole) {
-//       const roleMessage = (() => {
-//         switch (expectedRole) {
-//           case 1:
-//             return "Super Admin";
-//           case 2:
-//             return "Admin";
-//           case 3:
-//             return "User";
-//           default:
-//             return "Unknown";
-//         }
-//       })();
-
-//       return response.status(403).json({
-//         success: false,
-//         message: `Forbidden! You are not authorized. Expected role: ${roleMessage}.`,
-//         error: 3,
-//       });
-//     }
-
-//     request.user = user; // Attach user object to request
-//     next(); // Proceed to the next middleware or route handler
-//   } catch (error) {
-//     return response.status(401).json({
-//       success: false,
-//       message: "Unauthorized! " + error.message,
-//       error: 2,
-//     });
-//   }
-// };
-
-// const isSuperAdmin = checkRole(1);
-// const isAdmin = checkRole(2);
-// const isUser = checkRole(3);
+const isSuperAdmin = checkRole([1]);
+const isAdmin = checkRole([2]);
+const isUser = checkRole([3]);
+const isSuperAdminOrAdmin = checkRole([1, 2]);
 
 module.exports = {
   authenticateToken,
   isAuthenticated,
-  // isSuperAdmin,
   isAdmin,
-  // isUser,
+  isUser,
+  isSuperAdmin,
+  isSuperAdminOrAdmin,
 };

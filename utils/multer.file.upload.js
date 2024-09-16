@@ -17,7 +17,6 @@ const createMulterMiddleware = (storagePath) => {
       cb(null, absoluteStoragePath); // Use the dynamic storage path
     },
     filename: function (req, file, cb) {
-      console.log('file', file)
       const ext = path.extname(file.originalname);
       cb(null, Date.now() + ext); // Append the current timestamp to the filename
     }
@@ -25,7 +24,6 @@ const createMulterMiddleware = (storagePath) => {
 
   // File filter to accept only certain file types
   const fileFilter = (req, file, cb) => {
-    console.log('file2', file)
     const allowedExtensions = /jpeg|jpg|png|gif|webp|svg/; // Common image file extensions
     const extname = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
     const mimetype = allowedExtensions.test(file.mimetype);

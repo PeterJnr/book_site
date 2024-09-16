@@ -1,7 +1,7 @@
 const { id } = require("date-fns/locale");
 const Model = require("../models/queries.general");
 const Schema = require("../schemas/comments.schema");
-const { response } = require("express");
+const Comment = require("../models/comment.model");
 const tb_name = "comments";
 
 exports.allComments = async (req, res) => {
@@ -9,8 +9,8 @@ exports.allComments = async (req, res) => {
     const offset = parseInt(req.query.offset) || 0;
     const limit = parseInt(req.query.limit) || 50;
 
-    const result = await Model.fetch_all(tb_name, offset, limit);
-    if (result.rows.length === 0) {
+    const result = await Comment.fetchAllComments(tb_name, offset, limit);
+    if (!result) {
       return res.status(404).json({
         success: false,
         message: "No comments found.",
@@ -22,7 +22,7 @@ exports.allComments = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Comments fetched successfully.",
-      result: result.rows,
+      result: result,
       error: 0,
     });
   } catch (error) {
@@ -42,14 +42,14 @@ exports.getAUsersComment = async (req, res) => {
     const Id = req.params.comment_id;
     const user_id = req.user.userId;
 
-    const commentExist = await Model.fetch_one_by_key(tb_name, 'id', Id)
+    const commentExist = await Model.fetch_one_by_key(tb_name, "id", Id);
     if (commentExist.rowCount === 0) {
       return res.status(404).json({
-        message: 'Record not found',
+        message: "Record not found",
         success: false,
         error: 1,
         result: {},
-      })
+      });
     }
 
     const result = await Model.fetch_one_by_key(tb_name, "user_id", user_id);
@@ -80,11 +80,13 @@ exports.getAUsersComment = async (req, res) => {
   }
 };
 
-exports.getCommentByBook = async (req, res) => {
+exports.allCommentOfABook = async (req, res) => {
   try {
-    const Id = req.params.book_id;
+    const book_id = req.params.book_id;
 
-    const result = await Model.fetch_one_by_key(tb_name, "id", Id);
+    // Fetch comments using the model
+    const result = await Comment.fetchCommentsByBook(book_id);
+
     if (result.rows.length === 0) {
       return res.status(404).json({
         success: false,
@@ -94,10 +96,23 @@ exports.getCommentByBook = async (req, res) => {
       });
     }
 
+    // Helper function to nest comments
+    const nestComments = (comments, parentId = null) => {
+      return comments
+        .filter((comment) => comment.parent_id === parentId)
+        .map((comment) => ({
+          ...comment,
+          replies: nestComments(comments, comment.id), // Recursively get replies
+        }));
+    };
+
+    // Nest the comments
+    const nestedComments = nestComments(result.rows);
+
     return res.status(200).json({
       success: true,
-      message: "Comment fetched successfully.",
-      result: result.rows[0],
+      message: "Comments fetched successfully.",
+      result: nestedComments, // Return the nested comments
       error: 0,
     });
   } catch (error) {
@@ -105,7 +120,7 @@ exports.getCommentByBook = async (req, res) => {
 
     return res.status(500).json({
       success: false,
-      message: "Internal server error" + error.message,
+      message: "Internal server error: " + error.message,
       result: {},
       error: 2,
     });
@@ -115,22 +130,23 @@ exports.getCommentByBook = async (req, res) => {
 exports.createComment = async (req, res) => {
   try {
     const body = req.body;
-    const book_id = req.params.book_id;
+    const book_book_id = req.params.book_id;
     const user_id = req.user.userId;
 
-    const { error, value } = Schema.commentsCreate.validate(body);
+    // Validate the incoming request data using Joi schema
+    const { error, value } = Schema.addComment.validate(body);
 
     if (error) {
-      return res.status(404).json({
-        message: "VALIDATION ERROR:" + error.message,
+      return res.status(400).json({
+        message: "VALIDATION ERROR: " + error.message,
         success: false,
         result: {},
         error: 1,
       });
     }
 
+    // Check if the book exists in the database
     const bookExist = await Model.fetch_one_by_key("books", "id", book_id);
-
     if (bookExist.rowCount === 0) {
       return res.status(404).json({
         success: false,
@@ -140,13 +156,33 @@ exports.createComment = async (req, res) => {
       });
     }
 
-    const keys = Object.keys(value);
+    // Check if parent_id is provided and valid (for replies)
+    if (value.parent_id) {
+      const parentCommentExist = await Model.fetch_one_by_key(
+        "comments",
+        "id",
+        value.parent_id
+      );
+      if (parentCommentExist.rowCount === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "Parent comment not found.",
+          result: {},
+          error: 3,
+        });
+      }
+    }
+
+    // Prepare the data for insertion
+    const keys = Object.keys(value); // Includes fields like 'comment', 'parent_id'
     const values = Object.values(value);
 
+    // Add book_id and user_id to the comment data
     keys.push("book_id", "user_id");
     values.push(book_id, user_id);
 
-    const result = await Model.insert(tb_name, keys, values);
+    // Insert the comment into the database
+    const result = await Model.insert("comments", keys, values);
 
     if (result.rowCount > 0) {
       return res.status(201).json({
@@ -156,11 +192,12 @@ exports.createComment = async (req, res) => {
         error: 0,
       });
     }
+
     return res.status(500).json({
       message: "Failed to create comment.",
       success: false,
       result: {},
-      error: 3,
+      error: 4,
     });
   } catch (error) {
     console.error("Error creating comment:", error);
@@ -168,7 +205,7 @@ exports.createComment = async (req, res) => {
       message: "Internal server error",
       success: false,
       result: {},
-      error: 4,
+      error: 5,
     });
   }
 };
@@ -176,7 +213,7 @@ exports.createComment = async (req, res) => {
 exports.updateComment = async (req, res) => {
   try {
     const body = req.body;
-    const {comment_id} = req.params;
+    const { comment_id } = req.params;
 
     const { error, value } = Schema.updateComment.validate(body);
     if (error) {
@@ -188,14 +225,14 @@ exports.updateComment = async (req, res) => {
       });
     }
 
-    commentExist = await Model.fetch_one_by_key(tb_name, 'id', comment_id)
+    commentExist = await Model.fetch_one_by_key(tb_name, "id", comment_id);
     if (commentExist.rowCount === 0) {
       return res.status(404).json({
-        message: 'Record not found!',
+        message: "Record not found!",
         success: false,
         result: {},
         error: 2,
-      })
+      });
     }
 
     const result = await Model.update_by_id(tb_name, comment_id, value);
