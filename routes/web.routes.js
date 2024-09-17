@@ -14,10 +14,10 @@ router.put('/book/update/:id', Auth.isSuperAdminOrAdmin, BooksController.updateB
 router.delete('/book/delete/:id', Auth.isSuperAdminOrAdmin, BooksController.deleteBook);
 
 // comments (First route for getting all comments is for admin(s) only)..
-// router.get('/comments', Auth.isSuperAdminOrAdmin, CommentsController.allComments);
 router.post('/comment/create/:book_id', Auth.isAuthenticated, CommentsController.createComment);
-router.get('/comment/comment_id', Auth.isAuthenticated, CommentsController.getAUsersComment);
 router.get('/comments/:book_id', Auth.isAuthenticated, CommentsController.allCommentOfABook);
+router.get('/comment/user', Auth.isAuthenticated, CommentsController.getAUserComment);
+
 router.put('/comment/update/:comment_id', Auth.isAuthenticated, CommentsController.updateComment);
 router.delete('/comment/delete/:id', Auth.isAuthenticated, CommentsController.deleteComment);
 

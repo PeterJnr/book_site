@@ -22,7 +22,7 @@ class Comment {
 
   static async fetchCommentsByBook(book_id) {
     try {
-        const query = `
+      const query = `
             WITH RECURSIVE comment_hierarchy AS (
                 -- Fetch all root comments for a specific book
                 SELECT id, book_id, user_id, comment, parent_id, created_at, updated_at
@@ -38,19 +38,58 @@ class Comment {
             )
             SELECT * FROM comment_hierarchy;
         `;
-        
-        const values = [book_id];
 
-        // Execute the query to fetch all comments and their replies for the book
-        const result = await pool.query(query, values);
-        
-        return result;  // Return the raw result to be formatted in the controller
+      const values = [book_id];
+
+      // Execute the query to fetch all comments and their replies for the book
+      const result = await pool.query(query, values);
+
+      return result; // Return the raw result to be formatted in the controller
     } catch (error) {
-        console.error("Error fetching comments by book:", error);
-        throw new Error("Failed to fetch comments for the book.");
+      console.error("Error fetching comments by book:", error);
+      throw new Error("Failed to fetch comments for the book.");
     }
-}
+  }
 
+  static async fetch_one_by_key(tb_name, condition_key, condition_value) {
+    try {
+      const query = `
+        WITH RECURSIVE comment_tree AS (
+          SELECT 
+            id, 
+            book_id, 
+            user_id, 
+            comment, 
+            parent_id, 
+            created_at, 
+            updated_at
+          FROM ${tb_name}
+          WHERE ${condition_key} = $1
+          AND parent_id IS NULL -- Fetch top-level comments only
+
+          UNION ALL
+
+          SELECT 
+            c.id, 
+            c.book_id, 
+            c.user_id, 
+            c.comment, 
+            c.parent_id, 
+            c.created_at, 
+            c.updated_at
+          FROM ${tb_name} c
+          INNER JOIN comment_tree ct ON ct.id = c.parent_id -- Join to get replies
+        )
+        SELECT * FROM comment_tree;
+      `;
+
+      const result = await pool.query(query, [condition_value]);
+      return result;
+    } catch (error) {
+      console.error("Error fetching comment by key:", error);
+      throw error;
+    }
+  }
 }
 
 module.exports = Comment;

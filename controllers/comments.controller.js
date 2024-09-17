@@ -4,78 +4,76 @@ const Schema = require("../schemas/comments.schema");
 const Comment = require("../models/comment.model");
 const tb_name = "comments";
 
-exports.allComments = async (req, res) => {
+exports.getAUserComment = async (req, res) => {
   try {
-    const offset = parseInt(req.query.offset) || 0;
-    const limit = parseInt(req.query.limit) || 50;
+    const user_id = req.user.userId;
 
-    const result = await Comment.fetchAllComments(tb_name, offset, limit);
-    if (!result) {
+    const userExists = await Model.fetch_all_by_key('users', 'id', user_id)
+    if (userExists.rowCount === 0) {
+      return res.status(400).json({
+        message: 'User not found!',
+        result: {},
+        success: false,
+        error: 1,
+      });
+    }
+
+    // Call the static function to fetch comments and replies for the user
+    const result = await Comment.fetch_one_by_key(
+      "comments",
+      "user_id",
+      user_id
+    );
+
+    if (result.rowCount === 0) {
       return res.status(404).json({
         success: false,
         message: "No comments found.",
         result: {},
-        error: 1,
+        error: 2,
       });
     }
+
+    // Function to nest replies under their parent comments
+    const nestComments = (comments) => {
+      const commentMap = {};
+
+      // Organize comments by their ID for easy lookup
+      comments.forEach((comment) => {
+        comment.replies = []; // Add a replies field to each comment
+        commentMap[comment.id] = comment;
+      });
+
+      const nestedComments = [];
+
+      // Nest replies under their parent comments
+      comments.forEach((comment) => {
+        if (comment.parent_id) {
+          commentMap[comment.parent_id].replies.push(comment); // Attach as a reply
+        } else {
+          nestedComments.push(comment); // Top-level comments
+        }
+      });
+
+      return nestedComments;
+    };
+
+    const nestedComments = nestComments(result.rows);
 
     return res.status(200).json({
       success: true,
-      message: "Comments fetched successfully.",
-      result: result,
-      error: 0,
-    });
-  } catch (error) {
-    console.error("Error fetching comments:", error);
-
-    return res.status(500).json({
-      success: false,
-      message: "Internal server error" + error.message,
-      result: {},
-      error: 2,
-    });
-  }
-};
-
-exports.getAUsersComment = async (req, res) => {
-  try {
-    const Id = req.params.comment_id;
-    const user_id = req.user.userId;
-
-    const commentExist = await Model.fetch_one_by_key(tb_name, "id", Id);
-    if (commentExist.rowCount === 0) {
-      return res.status(404).json({
-        message: "Record not found",
-        success: false,
-        error: 1,
-        result: {},
-      });
-    }
-
-    const result = await Model.fetch_one_by_key(tb_name, "user_id", user_id);
-    if (result.rows.length === 0) {
-      return res.status(404).json({
-        success: false,
-        message: "No comments found.",
-        result: {},
-        error: 1,
-      });
-    }
-
-    return res.status(201).json({
-      success: true,
       message: "Comment fetched successfully.",
-      result: result.rows[0],
-      error: 0,
+      result: nestedComments, // Return the nested comments
+      error: 3,
     });
   } catch (error) {
     console.error("Error fetching comments:", error);
 
     return res.status(500).json({
       success: false,
-      message: "Internal server error" + error.message,
+      message: "Internal server error: " + error.message,
       result: {},
-      error: 2,
+      error: 4,
     });
   }
 };
@@ -83,6 +81,16 @@ exports.getAUsersComment = async (req, res) => {
 exports.allCommentOfABook = async (req, res) => {
   try {
     const book_id = req.params.book_id;
+
+    const bookExist = await Model.fetch_all_by_key("books", "id", book_id);
+    if (bookExist.rowCount === 0) {
+      return res.status(400).json({
+        message: "Record not found!",
+        success: false,
+        result: {},
+        error: 1,
+      });
+    }
 
     // Fetch comments using the model
     const result = await Comment.fetchCommentsByBook(book_id);
@@ -92,7 +100,7 @@ exports.allCommentOfABook = async (req, res) => {
         success: false,
         message: "No comments found.",
         result: {},
-        error: 1,
+        error: 2,
       });
     }
 
@@ -122,7 +130,7 @@ exports.allCommentOfABook = async (req, res) => {
       success: false,
       message: "Internal server error: " + error.message,
       result: {},
-      error: 2,
+      error: 3,
     });
   }
 };
@@ -228,7 +236,7 @@ exports.updateComment = async (req, res) => {
     commentExist = await Model.fetch_one_by_key(tb_name, "id", comment_id);
     if (commentExist.rowCount === 0) {
       return res.status(404).json({
-        message: "Record not found!",
+        message: "Comment not found!",
         success: false,
         result: {},
         error: 2,
@@ -274,7 +282,7 @@ exports.deleteComment = async (req, res) => {
     if (commentExists.rowCount === 0) {
       return res.status(404).json({
         success: false,
-        message: "No record found.",
+        message: "No Comment found.",
         result: {},
         error: 1,
       });
@@ -283,7 +291,7 @@ exports.deleteComment = async (req, res) => {
     const result = await Model.delete_by_key(tb_name, "id", comment_id); // Corrected column name to "id"
     if (result.rowCount > 0) {
       return res.status(200).json({
-        message: "Deleted Successfully",
+        message: "Comment Deleted Successfully",
         success: true,
         result: result.rows[0],
         error: 0,
