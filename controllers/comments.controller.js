@@ -288,7 +288,7 @@ exports.deleteComment = async (req, res) => {
       });
     }
 
-    const result = await Model.delete_by_key(tb_name, "id", comment_id); // Corrected column name to "id"
+    const result = await Model.delete_by_key(tb_name, "id", comment_id);
     if (result.rowCount > 0) {
       return res.status(200).json({
         message: "Comment Deleted Successfully",
