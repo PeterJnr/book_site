@@ -1,5 +1,5 @@
 const passwordReset = require("../emailTemplates/password.reset");
-const emailVerify = require("../emailTemplates/confirm.registration.email");
+const {confirmEmail, adminConfirmEmail} = require("../emailTemplates/confirm.registration.email");
 const transporter = require('../services/mail.transporter')
 
 const NODE_ENV = process.env.NODE_ENV;
@@ -38,13 +38,29 @@ const sendResetLink = async (user, hashedToken, response) => {
       from: process.env.EMAIL_USER,
       to: user.email,
       subject: 'Email Verification',
-      html: emailVerify(user, token)
+      html: confirmEmail(user, token)
     };
     
     await transporter.sendMail(mailOptions);
   }
 
+  const adminSendVerificationEmail = async (user, token, password) => {
+    const verificationUrl = `http://yourdomain.com/verify-email?token=${token}`;
+    
+    const mailOptions = {
+      from: process.env.EMAIL_USER,
+      to: user.email,
+      subject: 'Email Verification',
+      html: adminConfirmEmail(user, token, password)  // Pass the password here
+    };
+
+    // Code to send email, e.g., using Nodemailer
+    await transporter.sendMail(mailOptions);
+};
+
+
   module.exports = {
     sendResetLink,
-    sendVerificationEmail
+    sendVerificationEmail,
+    adminSendVerificationEmail
   }

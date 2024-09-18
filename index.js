@@ -19,9 +19,11 @@ const APP_VERSION = "V1";
 
 const authRoute = require("./routes/auth.routes");
 const webRoute = require("./routes/web.routes");
+const adminRoute = require("./routes/admin.route");
 
 app.use(`/${APP_VERSION}/auth`, authRoute);
 app.use(`/${APP_VERSION}/web`, webRoute);
+app.use(`/${APP_VERSION}/admin`, adminRoute);
 
 // Set up CORS
 app.use(cors({

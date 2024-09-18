@@ -1,4 +1,3 @@
-const { response } = require("express");
 const Model = require("../models/queries.general");
 const Schema = require("../schemas/books.schema");
 const tb_name = "books";
@@ -6,7 +5,6 @@ const tb_name = "books";
 exports.createBook = async (req, res) => {
   try {
     const body = req.body;
-    console.log('body', body)
 
     const { error, value } = Schema.bookCreateSchema.validate(body, {
       abortEarly: true,

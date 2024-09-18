@@ -109,6 +109,24 @@ const generatePasswordResetToken = async () => {
   return encryptedToken;
 };
 
+// Function to generate a random password
+const generatePassword = (length = 10) => {
+  const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()_+~';
+  let password = '';
+  
+  for (let i = 0; i < length; i++) {
+    const randomIndex = crypto.randomInt(0, charset.length); // Get a random index
+    password += charset[randomIndex]; // Append the character at that index
+  }
+  
+  return password;
+};
+
+// Generate a 10-character random password
+const newPassword = generatePassword();
+console.log('Generated password:', newPassword);
+
+
 module.exports = {
   completeLogin,
   handleLoginAttempts,
@@ -118,4 +136,5 @@ module.exports = {
   updateLastLoginTime,
   sendErrorResponse,
   generatePasswordResetToken,
+  generatePassword
 };

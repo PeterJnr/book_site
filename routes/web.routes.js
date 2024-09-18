@@ -1,23 +1,13 @@
 const express = require("express");
 const router = express.Router();
-const upload = require('../utils/multer.file.upload')
-const BooksController = require('../controllers/books.controller')
 const CommentsController = require('../controllers/comments.controller')
 const Auth = require("../middlewares/auth.middleware")
 const ReactionsController = require('../controllers/reactions.controller')
-
-// Books
-router.get('/books', Auth.isSuperAdminOrAdmin, BooksController.getAllBooks);
-router.post('/book/create', Auth.isSuperAdminOrAdmin, upload.single('cover_image'), BooksController.createBook);
-router.get('/book/:id', Auth.isSuperAdminOrAdmin, BooksController.getBookById);
-router.put('/book/update/:id', Auth.isSuperAdminOrAdmin, BooksController.updateBook);
-router.delete('/book/delete/:id', Auth.isSuperAdminOrAdmin, BooksController.deleteBook);
 
 // comments (First route for getting all comments is for admin(s) only)..
 router.post('/comment/create/:book_id', Auth.isAuthenticated, CommentsController.createComment);
 router.get('/comments/:book_id', Auth.isAuthenticated, CommentsController.allCommentOfABook);
 router.get('/comment/user', Auth.isAuthenticated, CommentsController.getAUserComment);
-
 router.put('/comment/update/:comment_id', Auth.isAuthenticated, CommentsController.updateComment);
 router.delete('/comment/delete/:id', Auth.isAuthenticated, CommentsController.deleteComment);
 
