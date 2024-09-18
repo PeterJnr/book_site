@@ -1,12 +1,12 @@
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { pool } = require('../services/pg_pool')
 const User = require("../models/user.model");
-const Password = require("../models/password.model");
-const Schema = require("../schemas/user.schema");
-const { validatePassword } = require("../utils/validation.utils");
-const passwordUtil = require("../utils/password.utils");
 const token = require("../utils/token.utility");
+const { pool } = require("../services/pg_pool");
+const Schema = require("../schemas/user.schema");
+const Password = require("../models/password.model");
+const passwordUtil = require("../utils/password.utils");
+const { validatePassword } = require("../utils/validation.utils");
 const { sendVerificationEmail } = require("../models/mail.model");
 const { createSession } = require("../controllers/sessions.controller");
 
@@ -195,9 +195,13 @@ exports.userLogin = async (req, res) => {
     }
 
     // Generate JWT token
-    const token = jwt.sign({ userId: user.id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: "1h",
-    });
+    const token = jwt.sign(
+      { userId: user.id, role: user.role },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "1h",
+      }
+    );
 
     // Extract information for session creation
     const expires_at = new Date(Date.now() + 60 * 60 * 1000); // Example: 1 hour expiry, adjust as needed

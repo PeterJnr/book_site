@@ -1,9 +1,10 @@
 // const Model = require("../models/queries.general");
-const token = require('../utils/token.utility')
-const Mail = require('../models/mail.model')
 const Schema = require("../schemas/admin");
-const Password = require('../utils/password.utils')
+const Mail = require('../models/mail.model')
 const User = require('../models/user.model');
+const token = require('../utils/token.utility')
+const { passwordHash } = require('../models/password.model')
+const Password = require('../utils/password.utils')
 
 exports.createAdmin = async (req, res) => {
     try {
@@ -69,7 +70,7 @@ exports.createAdmin = async (req, res) => {
       }
   
       // Hash the password
-      const hash_password = await Password.passwordHash(value.password);
+      const hash_password = await passwordHash(value.password);
       value.password = hash_password;
   
       // Generate verification token and send email
