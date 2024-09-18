@@ -189,6 +189,15 @@ exports.userLogin = async (req, res) => {
         2
       );
 
+      if (!user.verified_at || user.verified_at === false) {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Email is not verified. Please check your email to verify your account.",
+        error: 1,
+      });
+    }
+
     if (!(await Password.verifyPassword(password, user.password))) {
       await passwordUtil.handleLoginAttempts(user.email);
       return passwordUtil.sendErrorResponse(res, 400, "Wrong Password!", 4);

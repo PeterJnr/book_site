@@ -38,7 +38,8 @@ const adminConfirmEmail = (user, resetToken, password) => {
         <div style="text-align: center;">
           <p>Dear ${user.name}!</p>
           <p style="text-align: center;">
-             Please click on the link below to confirm your email and complete your registration.<br />
+             Please click on the link below to confirm your email and complete your registration.
+             We advise that you change your password to anything familiar so you can find it more convinient and easy to remember<br />
           </p>
           <br/>
           <hr />

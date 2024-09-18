@@ -7,7 +7,7 @@ const AdminController = require('../controllers/admin.controller');
 
 
 // Create
-router.post('/admin/create', AdminController.createAdmin);
+router.post('/admin/create', Auth.isSuperAdmin, AdminController.createAdmin);
 // router.get('/book/:id', Auth.isSuperAdminOrAdmin, BooksController.getBookById);
 // router.put('/book/update/:id', Auth.isSuperAdminOrAdmin, BooksController.updateBook);
 // router.delete('/book/delete/:id', Auth.isSuperAdminOrAdmin, BooksController.deleteBook);
