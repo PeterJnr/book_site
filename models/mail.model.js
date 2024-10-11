@@ -1,5 +1,6 @@
 const passwordReset = require("../emailTemplates/password.reset");
 const {confirmEmail, adminConfirmEmail} = require("../emailTemplates/confirm.registration.email");
+const otpTemplate = require("../emailTemplates/otp.template");
 const transporter = require('../services/mail.transporter')
 
 const NODE_ENV = process.env.NODE_ENV;
@@ -58,9 +59,19 @@ const sendResetLink = async (user, hashedToken, response) => {
     await transporter.sendMail(mailOptions);
 };
 
+const sendOtpEmail = async (user, otpCode) => {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to: user.email,
+    subject: 'Your One-Time Password (OTP)',
+    html: otpTemplate(user, otpCode) // Use the OTP template here
+  };
+  await transporter.sendMail(mailOptions);
+}
 
   module.exports = {
     sendResetLink,
     sendVerificationEmail,
-    adminSendVerificationEmail
+    adminSendVerificationEmail,
+    sendOtpEmail
   }

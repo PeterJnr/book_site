@@ -125,19 +125,19 @@ exports.updateUser = async (req, res) => {
       });
     }
 
-    if (body.email) {
-      const emailExists = await User.emailExists(body.email);
+    if (value.email) {
+      const emailExists = await User.emailExists(value.email);
       if (emailExists) {
         return res.status(409).json({
           success: false,
-          message: `Email ${body.email} already exists!`,
+          message: `Email ${value.email} already exists!`,
           result: {},
           error: 2,
         });
       }
     }
 
-    const result = await User.updateUser(id, body);
+    const result = await User.updateUser(id, value);
     if (result.rowCount === 0) {
       return res.status(404).json({
         message: "INTERNAL SERVER ERROR:" + error.message,
@@ -179,22 +179,21 @@ exports.userLogin = async (req, res) => {
     }
 
     const user = await User.getUserByEmail(email);
-    if (!user)
-      return passwordUtil.sendErrorResponse(res, 400, "User Not Found!", 3);
-    if (user.status === "suspended")
-      return passwordUtil.sendErrorResponse(
-        res,
-        400,
-        "You have been DEACTIVATED; contact admin!",
-        2
-      );
+    if (!user) {
+      // Check if the user object itself is null or undefined
+      return res.status(400).json({
+        message: "This user does not exist",
+        success: false,
+        error: 1,
+      });
+    }
 
-      if (!user.verified_at || user.verified_at === false) {
+    if (user.is_verified === false) {
       return res.status(403).json({
         success: false,
         message:
-          "Email is not verified. Please check your email to verify your account.",
-        error: 1,
+          "Email is not verified. Please check your email to complete your registration and then you can log in.",
+        error: 2,
       });
     }
 
@@ -203,7 +202,6 @@ exports.userLogin = async (req, res) => {
       return passwordUtil.sendErrorResponse(res, 400, "Wrong Password!", 4);
     }
 
-    // Generate JWT token
     const token = jwt.sign(
       { userId: user.id, role: user.role },
       process.env.JWT_SECRET,
@@ -213,9 +211,9 @@ exports.userLogin = async (req, res) => {
     );
 
     // Extract information for session creation
-    const expires_at = new Date(Date.now() + 60 * 60 * 1000); // Example: 1 hour expiry, adjust as needed
-    const ip_address = req.headers["x-forwarded-for"] || req.ip; // Retrieves IP address
-    const user_agent = req.headers["user-agent"]; // Retrieves user agent from request headers
+    const expires_at = new Date(Date.now() + 60 * 60 * 1000); 
+    const ip_address = req.headers["x-forwarded-for"] || req.ip;
+    const user_agent = req.headers["user-agent"];
 
     await updateLastLoginTime(user.email);
     // Create a session
